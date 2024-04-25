@@ -6,8 +6,6 @@
 
 #include "config.h"
 
-
-
 static int /* FILE READ,   Buffer FILL data, Buffer Length */
 __FILE_GET_NEW_LINE(FILE *fr, char *buff, unsigned int bufflength)
 {
@@ -124,8 +122,6 @@ __CFG_PARSE_NAME(char *buff)
     char *token = NULL;
     char *ret = NULL;
     const int maxlen = 1024;
-    int i;
-    int reti;
     
     token = strtok(buff, delimeter);
     if(token)
@@ -135,7 +131,7 @@ __CFG_PARSE_NAME(char *buff)
 }
 
 static char *
-__CFG_PARSE_VALUE(char *buff)
+__CFG_PARSE_VALUE_STR(char *buff)
 {
     const char *delimeter = "=";
     char *token = NULL;
@@ -159,6 +155,33 @@ __CFG_GET_VAR_FROM_STRING(CFG *cfg, const char *VarName)
     return item;
 }
 
+static char *
+__CFG_GET_FORMAT_SPECIFIER_FROM_TYPE(int CFGType)
+{
+     switch(CFGType)
+    {
+        case INT:
+            return "%d";
+        case UINT:
+            return "%u";
+        case LONG:
+            return "%ld";
+        case ULONG:
+            return "%lu";
+        case FLOAT:
+            return "%f";
+        case DOUBLE:
+            return "%f";
+        case CHAR:
+            return "%c";
+        case UCHAR:
+            return "%d";
+        case STRING:
+            return "%s";
+    }
+    return NULL;  
+}
+
 static size_t
 __CFG_GET_TYPE_SIZE(int CFGType)
 {
@@ -180,6 +203,8 @@ __CFG_GET_TYPE_SIZE(int CFGType)
             return sizeof(char);
         case UCHAR:
             return sizeof(unsigned char);
+        case STRING:
+            return sizeof(char *);
     }
     return 0;
 }
@@ -233,19 +258,19 @@ CFGCreateVar(
 
     if(item)
     {
+        item->data = calloc(1, __CFG_GET_TYPE_SIZE(CFGType));
+        if(!item->data)
+        {   
+            free(item->data);
+            free(item);
+            return 1;
+        }
         item->name = VarName;
         item->_type = CFGType;
         item->size = __CFG_GET_TYPE_SIZE(CFGType);
-        if(cfg)
-        {   __attach(cfg, item);
-        }
-        else
-        {
-            free(item);
-            item = NULL;
-        }
+        __attach(cfg, item);
     }
-    return !!item;
+    return !item;
 }
 
 void *
@@ -261,6 +286,21 @@ CFGGetVarValue(
     return NULL;
 }
 
+/* Saves data specified by the variable name If it exists. 
+ * One must pass in the address of the data wanting to be used, this includes strings interpreted as char *.
+ * Do note that the data type must be correct as no bounds checks are made when copying memoery.
+ *
+ * EX: int x = 10; 
+ *     CFGSaveVar(MyCfg, "MyVar", &x);
+ * EX: char *str = "my cool string";
+ *     char str2[] = "my cool string";
+ *     CFGSaveVar(MyCfg, "MyVarString", &str);
+ *     CFGSaveVar(MyCfg, "MyVarStringArray", &str2);
+ * 
+ *
+ * RETURN: 0 On Success.
+ * RETURN: 1 On Failure.
+ */
 int
 CFGSaveVar(
         CFG *cfg, 
@@ -270,9 +310,10 @@ CFGSaveVar(
 {
     CFGItem *item;
     if((item = __CFG_GET_VAR_FROM_STRING(cfg, VarName)))
-    {   memcpy(item->data, data, item->size);
+    {   
+        memcpy(item->data, data, item->size);
     }
-    return !!item;
+    return !item;
 }
 
 int
@@ -290,54 +331,23 @@ CFGWrite(
     uint8_t error = ParseSuccess;
     for(item = cfg->last; item; item = item->prev)
     {
-        switch(item->_type)
+        format = __CFG_GET_FORMAT_SPECIFIER_FROM_TYPE(item->_type);
+        if(format)
         {
-            case INT:
-                format = "%d";
-                fprintf(fw, format, *(int *)item->data);
-                break;
-            case UINT:
-                format = "%u";
-                fprintf(fw, format, *(unsigned int *)item->data);
-                break;
-            case LONG:
-                format = "%ld";
-                fprintf(fw, format, *(long int *)item->data);
-                break;
-            case ULONG:
-                format = "%lu";
-                fprintf(fw, format, *(unsigned long *)item->data);
-                break;
-            case FLOAT:
-                format = "%f";
-                fprintf(fw, format, *(float *)item->data);
-                break;
-            case DOUBLE:
-                format = "%f";
-                fprintf(fw, format, *(double *)item->data);
-                break;
-            case CHAR:
-                format = "%c";
-                fprintf(fw, format, ((char *)item->data)[0]);
-                break;
-            case UCHAR:
-                format = "%d";
-                fprintf(fw, format, *(unsigned char *)item->data);
-            case STRING:
-                format = "%s";
-                fprintf(fw, format, (char *)item->data);
-                break;
-            default:
-                error = ParsePartialError;
-                break;
+            printf(format, *(char *)item->data);
+            printf("\n");
+            //fprintf(fw, format, item->data);   
+            //fprintf(fw, "\n");
         }
-        fprintf(fw, "\n");
     }
+    fclose(fw);
     return error;
 }
 
 int
-CFGLoad(CFG *OldCfg)
+CFGLoad(
+        CFG *OldCfg
+        )
 {
     const int standardbufflimit = 1024 << 2;
     int running = 1;
@@ -346,7 +356,6 @@ CFGLoad(CFG *OldCfg)
 
     char *name = NULL;
     char *typename = NULL;
-    int type = NOTYPE;
     void *data = NULL;
     if(!fr)
     {   return ParseError;
@@ -367,20 +376,37 @@ CFGLoad(CFG *OldCfg)
                 continue;
         }
         name = __CFG_PARSE_NAME(buff);
-        typename = __CFG_PARSE_VALUE(buff);
+        typename = __CFG_PARSE_VALUE_STR(buff);
         if(!name || !typename)
         {   
             free(name);
             free(typename);
             continue;
         }
-
+        CFGItem *item;
+        char *format = NULL;
+        if((item = __CFG_GET_VAR_FROM_STRING(OldCfg, name)))
+        {
+            if(item->_type == STRING)
+            {
+                CFGSaveVar(OldCfg, name, &typename);
+                free(name);
+                /* we dont free typename as we pass the adress to we are copying the char *adress */
+                continue;
+            }
+            if((format = __CFG_GET_FORMAT_SPECIFIER_FROM_TYPE(item->_type)))
+            { 
+                void *_data = NULL;
+                const uint8_t SSCANF_SUCCESS = 1;
+                const uint8_t sscanfstatus = sscanf(typename, format, &_data);
+                if(SSCANF_SUCCESS == sscanfstatus)
+                {   CFGSaveVar(OldCfg, name, data);
+                }
+            }
+        }
         free(name);
         free(typename);
     }
-
-
-
-
+    fclose(fr);
     return error;
 }

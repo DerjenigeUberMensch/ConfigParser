@@ -21,23 +21,17 @@ typedef union ARGB ARGB;
 
 struct Generic
 {
-    union
-    {
-        void *datav;
-        void **datavl;
-    } v;
+    void *datav;
+    void **datavl;
 
-    union
-    {
-        int8_t data8[64];
-        int16_t data16[32];
-        int32_t data32[16];
-        int64_t data64[8];
+    int8_t data8[64];
+    int16_t data16[32];
+    int32_t data32[16];
+    int64_t data64[8];
 
-        float dataf[16];
-        double datad[8];
-        long double datadd[4];  /* compiler specified but should be at most 128 bits */
-    } n;
+    float dataf[16];
+    double datad[8];
+    long double datadd[4];  /* compiler specified but should be at most 128 bits */
 };
 
 /* ORDER.
@@ -46,22 +40,16 @@ struct Generic
 union ARGB
 {
 #if __LITTLE_ENDIAN__
-    struct
-    {
-        uint8_t a;  /* Alpha value */
-        uint8_t r;  /* Red Value   */
-        uint8_t g;  /* Green Value */
-        uint8_t b;  /* Blue Value  */
-    };
+    uint8_t a;  /* Alpha value */
+    uint8_t r;  /* Red Value   */
+    uint8_t g;  /* Green Value */
+    uint8_t b;  /* Blue Value  */
     uint32_t argb;  /* ARGB 32bit value */
 #else
-    struct
-    {
-        uint8_t b;  /* Blue Value  */
-        uint8_t g;  /* Green Value */
-        uint8_t r;  /* Red Value   */
-        uint8_t a;  /* Alpha value */
-    };
+    uint8_t b;  /* Blue Value  */
+    uint8_t g;  /* Green Value */
+    uint8_t r;  /* Red Value   */
+    uint8_t a;  /* Alpha value */
     uint32_t argb;  /* ARGB 32bit value */
 #endif
 };
