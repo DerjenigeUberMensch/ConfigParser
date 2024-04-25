@@ -61,6 +61,60 @@ enum CFGType
 
 
 
+CFG *
+CFGCreate(
+        char *FILE_NAME
+        );
+
+CFGItem *
+CFGCreateItem(
+        void
+        );
+
+int
+CFGCreateVar(
+        CFG *cfg, 
+        char *VarName, 
+        int CFGType
+        );
+
+void *
+CFGGetVarValue(
+        CFG *cfg, 
+        char *VarName
+        );
+
+/* Saves data specified by the variable name If it exists. 
+ * One must pass in the address of the data wanting to be used, this includes strings interpreted as char *.
+ *
+ * EX: int x = 10; 
+ *     CFGSaveVar(MyCfg, "MyVar", &x);
+ * EX: char *str = "my cool string";
+ *     char str2[] = "my cool string";
+ *     CFGSaveVar(MyCfg, "MyVarString", str);
+ *     CFGSaveVar(MyCfg, "MyVarStringArray", str2);
+ * 
+ *
+ * RETURN: 0 On Success.
+ * RETURN: 1 On Failure.
+ */
+int
+CFGSaveVar(
+        CFG *cfg, 
+        char *VarName, 
+        void *data
+        );
+
+int
+CFGWrite(
+        CFG *cfg
+        );
+
+int
+CFGLoad(
+        CFG *OldCfg
+        );
+
 
 
 
