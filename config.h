@@ -51,19 +51,18 @@ enum CFGType
     ULONG,
     FLOAT,
     DOUBLE,
-    STRING,
-    VECTOR,
     LASTTYPE,
 };
-
-
-
-
 
 
 CFG *
 CFGCreate(
         char *FILE_NAME
+        );
+
+void
+CFGDestroy(
+        CFG *cfg
         );
 
 CFGItem *
