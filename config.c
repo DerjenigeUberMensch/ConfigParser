@@ -1,10 +1,54 @@
-
+/* MIT License
+ *
+ * Copyright (c) 2024- Joseph
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "config.h"
+
+
+
+typedef union __Generic __Generic;
+
+union __Generic
+{
+    void *v;
+    void **vv;
+
+    uint8_t uc;
+    int8_t c;
+    uint16_t us;
+    int16_t s;
+    int32_t i;
+    uint32_t ui;
+    int64_t ii;
+    uint64_t uii;
+
+    float f;
+    double d;
+};
 
 static int /* FILE READ,   Buffer FILL data, Buffer Length */
 __FILE_GET_NEW_LINE(FILE *fr, char *buff, unsigned int bufflength)
@@ -139,7 +183,6 @@ __CFG_PARSE_VALUE_STR(char *buff)
     const int maxlen = 1024;
     
     token = strtok(buff, delimeter);
-    token = strtok(NULL, delimeter);
     if(token)
     {   ret = __REMOVE_WHITE_SPACE(token, strnlen(token, maxlen));
     }
@@ -171,13 +214,11 @@ __CFG_GET_FORMAT_SPECIFIER_FROM_TYPE(int CFGType)
         case FLOAT:
             return "%f";
         case DOUBLE:
-            return "%f";
+            return "%lf";
         case CHAR:
             return "%c";
         case UCHAR:
             return "%d";
-        case STRING:
-            return "%s";
     }
     return NULL;  
 }
@@ -203,10 +244,9 @@ __CFG_GET_TYPE_SIZE(int CFGType)
             return sizeof(char);
         case UCHAR:
             return sizeof(unsigned char);
-        case STRING:
-            return sizeof(char *);
     }
-    return 0;
+    //fprintf(stderr, "Allocating 0 Bytes? are you sure you have a type set.");
+    return sizeof(void *);
 }
 
 
@@ -225,6 +265,23 @@ CFGCreate(
     }
 
     return ret;
+}
+
+void
+CFGDestroy(
+    CFG *cfg
+    )
+{
+    CFGItem *prev;
+    CFGItem *current = cfg->items;
+    while(current)
+    {   
+        prev = current; 
+        current = current->next;
+        free(prev->data);
+        free(prev);
+    }
+    free(cfg);
 }
 
 
@@ -258,7 +315,7 @@ CFGCreateVar(
 
     if(item)
     {
-        item->data = calloc(1, __CFG_GET_TYPE_SIZE(CFGType));
+        item->data = calloc(1, sizeof(__Generic));
         if(!item->data)
         {   
             free(item->data);
@@ -311,7 +368,33 @@ CFGSaveVar(
     CFGItem *item;
     if((item = __CFG_GET_VAR_FROM_STRING(cfg, VarName)))
     {   
-        memcpy(item->data, data, item->size);
+        switch(item->_type)
+        {
+            case INT:
+                ((__Generic *)item->data)->i = *(int32_t *)data;
+                break;
+            case UINT:
+                ((__Generic *)item->data)->ui = *(uint32_t *)data;
+                break;
+            case LONG:
+                ((__Generic *)item->data)->ii = *(int64_t *)data;
+                break;
+            case ULONG:
+                ((__Generic *)item->data)->uii = *(uint64_t *)data;
+                break;
+            case FLOAT:
+                ((__Generic *)item->data)->f = *(float *)data;
+                break;
+            case DOUBLE:
+                ((__Generic *)item->data)->d = *(double *)data;
+                break;
+            case CHAR:
+                ((__Generic *)item->data)->c = *(int8_t *)data;
+                break;
+            case UCHAR:
+                ((__Generic *)item->data)->uc = *(uint8_t *)data;
+                break;
+        }
     }
     return !item;
 }
@@ -323,6 +406,7 @@ CFGWrite(
 {
     CFGItem *item;
     char *format;
+    __Generic *data;
     FILE *fw = fopen(cfg->file, "w");
 
     if(!fw)
@@ -332,13 +416,36 @@ CFGWrite(
     for(item = cfg->last; item; item = item->prev)
     {
         format = __CFG_GET_FORMAT_SPECIFIER_FROM_TYPE(item->_type);
-        if(format)
+        data = item->data;
+        fprintf(fw, "%s=", item->name);
+        switch(item->_type)
         {
-            printf(format, *(char *)item->data);
-            printf("\n");
-            //fprintf(fw, format, item->data);   
-            //fprintf(fw, "\n");
+            case INT:
+                fprintf(fw, format, data->i);
+                break;
+            case UINT:
+                fprintf(fw, format, data->ui);
+                break;
+            case LONG:
+                fprintf(fw, format, data->ii);
+                break;
+            case ULONG:
+                fprintf(fw, format, data->uii);
+                break;
+            case FLOAT:
+                fprintf(fw, format, data->f);
+                break;
+            case DOUBLE:
+                fprintf(fw, format, data->d);
+                break;
+            case CHAR:
+                fprintf(fw, format, data->c);
+                break;
+            case UCHAR:
+                fprintf(fw, format, data->uc);
+                break;
         }
+        fprintf(fw, "\n");
     }
     fclose(fw);
     return error;
@@ -376,7 +483,7 @@ CFGLoad(
                 continue;
         }
         name = __CFG_PARSE_NAME(buff);
-        typename = __CFG_PARSE_VALUE_STR(buff);
+        typename = __CFG_PARSE_VALUE_STR(NULL);
         if(!name || !typename)
         {   
             free(name);
@@ -387,20 +494,13 @@ CFGLoad(
         char *format = NULL;
         if((item = __CFG_GET_VAR_FROM_STRING(OldCfg, name)))
         {
-            if(item->_type == STRING)
-            {
-                CFGSaveVar(OldCfg, name, &typename);
-                free(name);
-                /* we dont free typename as we pass the adress to we are copying the char *adress */
-                continue;
-            }
             if((format = __CFG_GET_FORMAT_SPECIFIER_FROM_TYPE(item->_type)))
             { 
-                void *_data = NULL;
+                __Generic ge;
                 const uint8_t SSCANF_SUCCESS = 1;
-                const uint8_t sscanfstatus = sscanf(typename, format, &_data);
+                const uint8_t sscanfstatus = sscanf(typename, format, &ge);
                 if(SSCANF_SUCCESS == sscanfstatus)
-                {   CFGSaveVar(OldCfg, name, data);
+                {   CFGSaveVar(OldCfg, name, &ge);
                 }
             }
         }
