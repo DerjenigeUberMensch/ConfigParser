@@ -7,7 +7,7 @@ SRC = $(wildcard *.c)
 SRCH= $(wildcard *.h)
 OBJ = $(patsubst %.c,${BIN}/%.o,$(SRC))
 VERSION = 1.0.0
-EXE = dwm 
+EXE = dwm
 EXEPATH = ${BIN}/${EXE}
 CMACROS += -DVERSION=\"${VERSION}\" -DNAME=\"${EXE}\" 
 CFLAGS += ${CMACROS}

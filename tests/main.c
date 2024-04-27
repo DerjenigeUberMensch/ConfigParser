@@ -23,11 +23,9 @@ main()
     double _double = 3312032131.0;
     char _char = 123;
     unsigned char _uchar = 255;
-    char *str = "Gamer word gamer";
 
     CFG *cfg = CFGCreate("/tmp/wannacry");
     
-    /*   
     CFGCreateVar(cfg, "LONG", LONG);
     CFGCreateVar(cfg, "ULONG", ULONG);
     CFGCreateVar(cfg, "INT", INT);
@@ -36,9 +34,7 @@ main()
     CFGCreateVar(cfg, "DOUBLE", DOUBLE);
     CFGCreateVar(cfg, "CHAR", CHAR);
     CFGCreateVar(cfg, "UCHAR", UCHAR);
-    */
-    CFGCreateVar(cfg, "STRING", STRING);
-
+    
     /*
     CFGSaveVar(cfg, "LONG", &_long);
     CFGSaveVar(cfg, "ULONG", &_ulong);
@@ -49,12 +45,48 @@ main()
     CFGSaveVar(cfg, "CHAR", &_char);
     CFGSaveVar(cfg, "UCHAR", &_uchar);
     */
-    CFGSaveVar(cfg, "STRING", str);
 
-    //DEBUG("%d", _long);
-    DEBUG("%d", *(long *)&_long);
-    DEBUG("%s", str);
-    DEBUG("%s", cfg->items->data);
-    //CFGWrite(cfg);
+    printf("Should be: ");
+    printf("%ld", _long);
+    printf(" %lu", _ulong);
+    printf(" %d", _int);
+    printf(" %u", _uint);
+    printf(" %f", _float);
+    printf(" %f", _double);
+    printf(" %d", _char);
+    printf(" %d", _uchar);
+    printf("\n");
+
+    CFGLoad(cfg);
+
+    long int *LONG = CFGGetVarValue(cfg, "LONG");
+    unsigned long int *ULONG = CFGGetVarValue(cfg, "ULONG");
+    int *INT = CFGGetVarValue(cfg, "INT");
+    unsigned int *UINT = CFGGetVarValue(cfg, "UINT");
+    float *FLOAT = CFGGetVarValue(cfg, "FLOAT");
+    double *DOUBLE = CFGGetVarValue(cfg, "DOUBLE");
+    char *CHAR = CFGGetVarValue(cfg, "CHAR");
+    unsigned char *UCHAR = CFGGetVarValue(cfg, "UCHAR");
+
+
+    printf("%ld", *LONG);
+    printf("\n");
+    printf("%lu", *ULONG);
+    printf("\n");
+    printf("%d", *INT);
+    printf("\n");
+    printf("%u", *UINT);
+    printf("\n");
+    printf("%f", *FLOAT);
+    printf("\n");
+    printf("%f", *DOUBLE);
+    printf("\n");
+    printf("%d", *CHAR);
+    printf("\n");
+    printf("%d", *UCHAR);
+    printf("\n");
+
+
+    CFGDestroy(cfg);
 }
 
